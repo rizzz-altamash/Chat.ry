@@ -73,3 +73,7 @@ yarn-error.log
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+# Backend ignores
+chatry-backend/node_modules
+chatry-backend/.env*
