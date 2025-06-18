@@ -127,17 +127,32 @@ const verifyRegistrationOTP = async (req, res, next) => {
 // Login with phone and password
 const login = async (req, res, next) => {
   try {
-    const { phone, password } = req.body;
-    
-    // Find user
-    const user = await User.findOne({ phone });
-    if (!user) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-    
-    // Check if phone is verified
-    if (!user.isPhoneVerified) {
-      return res.status(401).json({ error: 'Phone number not verified' });
+    const { phone, username, password } = req.body;
+
+    let user;
+
+    // Check if login is via username or phone
+    if (username) {
+      // Login with username
+      user = await User.findOne({ 
+        username: username.toLowerCase(),
+        isPhoneVerified: true 
+      });
+      
+      if (!user) {
+        return res.status(401).json({ error: 'Invalid credentials' });
+      }
+    } else if (phone) {
+      // Find user
+      user = await User.findOne({ phone });
+      if (!user) {
+        return res.status(401).json({ error: 'Invalid credentials' });
+      }
+      
+      // Check if phone is verified
+      if (!user.isPhoneVerified) {
+        return res.status(401).json({ error: 'Phone number not verified' });
+      }
     }
     
     // Check password
@@ -165,19 +180,50 @@ const login = async (req, res, next) => {
   }
 };
 
+// const logout = async (req, res, next) => {
+//   try {
+//     const user = req.user;
+    
+//     // Update online status
+//     user.isOnline = false;
+//     user.lastSeen = new Date();
+//     user.socketId = null;
+//     await user.save();
+
+//     res.json({ message: 'Logout successful' });
+//   } catch (error) {
+//     next(error);
+//   }
+// };
+
 const logout = async (req, res, next) => {
   try {
+    // Check if user exists (from auth middleware)
+    if (!req.user) {
+      // If no user, just return success (already logged out)
+      return res.json({ message: 'Logout successful' });
+    }
+
     const user = req.user;
     
     // Update online status
     user.isOnline = false;
     user.lastSeen = new Date();
     user.socketId = null;
-    await user.save();
+    
+    // Save changes - wrap in try-catch to handle any DB errors
+    try {
+      await user.save();
+    } catch (saveError) {
+      console.error('Error updating user status:', saveError);
+      // Continue with logout even if save fails
+    }
 
     res.json({ message: 'Logout successful' });
   } catch (error) {
-    next(error);
+    console.error('Logout error:', error);
+    // Always return success for logout to avoid blocking user
+    res.json({ message: 'Logout successful' });
   }
 };
 

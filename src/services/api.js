@@ -237,12 +237,28 @@ class ApiService {
     this.baseURL = 'http://192.168.1.7:3000/api'; // CHANGE THIS TO YOUR IP!
   }
 
-  async getHeaders() {
-    const token = await AsyncStorage.getItem('authToken');
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': token ? `Bearer ${token}` : ''
+  // async getHeaders() {
+  //   const token = await AsyncStorage.getItem('authToken');
+  //   return {
+  //     'Content-Type': 'application/json',
+  //     'Authorization': token ? `Bearer ${token}` : ''
+  //   };
+  // }
+
+  // Update getHeaders to handle optional auth
+  async getHeaders(requireAuth = true) {
+    const headers = {
+      'Content-Type': 'application/json'
     };
+    
+    if (requireAuth) {
+      const token = await AsyncStorage.getItem('authToken');
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+    }
+    
+    return headers;
   }
 
   async request(endpoint, options = {}) {
@@ -366,6 +382,49 @@ class ApiService {
     return response;
   }
 
+  // Add this new method for username availability check
+  async checkUsernameAvailability(username) {
+    try {
+      // Don't send auth header for this request
+      const response = await fetch(`${this.baseURL}/auth/check-username/${username}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+          // No Authorization header
+        }
+      });
+      
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error('Username check failed:', data);
+        return { available: false, error: data.error };
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Username availability  check error:', error);
+      return { available: false, error: 'Network error' };
+    }
+  }
+
+  async loginWithUsername(username, password) {
+    const response = await this.request('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ 
+        username: username.toLowerCase(), // Ensure lowercase
+        password 
+      })
+    });
+
+    if (response.token) {
+      await AsyncStorage.setItem('authToken', response.token);
+      await AsyncStorage.setItem('userData', JSON.stringify(response.user));
+    }
+
+    return response;
+  }
+
   async sendOTP(fullPhoneNumber) {
     // Parse phone number to separate country code and number
     const { countryCode, phone } = this.parsePhoneNumber(fullPhoneNumber);
@@ -413,12 +472,18 @@ class ApiService {
   }
 
   async logout() {
-    await this.request('/auth/logout', {
-      method: 'POST'
-    });
-    
-    await AsyncStorage.removeItem('authToken');
-    await AsyncStorage.removeItem('userData');
+    try {
+      await this.request('/auth/logout', {
+        method: 'POST'
+      });
+    } catch (error) {
+      // Ignore logout errors - user wants to logout anyway
+      console.log('Logout API error:', error);
+    } finally {
+      // Always clear local data
+      await AsyncStorage.removeItem('authToken');
+      await AsyncStorage.removeItem('userData');
+    }
   }
 
   // User endpoints

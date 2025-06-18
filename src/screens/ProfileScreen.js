@@ -1,141 +1,5 @@
-// // ===== src/screens/ProfileScreen.js =====
-// import React from 'react';
-// import {
-//   View,
-//   Text,
-//   Image,
-//   TouchableOpacity,
-//   StyleSheet,
-//   ScrollView,
-// } from 'react-native';
-// import Icon from 'react-native-vector-icons/MaterialIcons';
-// import colors from '../styles/colors';
-
-// const ProfileScreen = ({navigation}) => {
-//   const profileOptions = [
-//     {icon: 'person', label: 'Account', onPress: () => {}},
-//     {icon: 'lock', label: 'Privacy', onPress: () => {}},
-//     {icon: 'notifications', label: 'Notifications', onPress: () => {}},
-//     {icon: 'settings', label: 'Settings', onPress: () => navigation.navigate('Settings')},
-//     {icon: 'help', label: 'Help', onPress: () => {}},
-//   ];
-
-//   return (
-//     <ScrollView style={styles.container}>
-//       <View style={styles.profileHeader}>
-//         <TouchableOpacity style={styles.avatarContainer}>
-//           <View style={styles.avatarPlaceholder}>
-//             <Icon name="camera-alt" size={30} color={colors.white} />
-//           </View>
-//         </TouchableOpacity>
-//         <Text style={styles.userName}>John Doe</Text>
-//         <Text style={styles.userStatus}>Hey there! I'm using Chatry</Text>
-//       </View>
-
-//       <View style={styles.optionsContainer}>
-//         {profileOptions.map((option, index) => (
-//           <TouchableOpacity
-//             key={index}
-//             style={styles.optionItem}
-//             onPress={option.onPress}>
-//             <Icon name={option.icon} size={24} color={colors.primary} />
-//             <Text style={styles.optionLabel}>{option.label}</Text>
-//             <Icon name="chevron-right" size={24} color={colors.gray} />
-//           </TouchableOpacity>
-//         ))}
-//       </View>
-
-//       <TouchableOpacity style={styles.logoutButton}>
-//         <Text style={styles.logoutText}>Log Out</Text>
-//       </TouchableOpacity>
-//     </ScrollView>
-//   );
-// };
-
-// const styles = StyleSheet.create({
-//   container: {
-//     flex: 1,
-//     backgroundColor: colors.white,
-//   },
-//   profileHeader: {
-//     alignItems: 'center',
-//     paddingVertical: 30,
-//     borderBottomWidth: 1,
-//     borderBottomColor: colors.borderColor,
-//   },
-//   avatarContainer: {
-//     marginBottom: 16,
-//   },
-//   avatarPlaceholder: {
-//     width: 100,
-//     height: 100,
-//     borderRadius: 50,
-//     backgroundColor: colors.gray,
-//     alignItems: 'center',
-//     justifyContent: 'center',
-//   },
-//   userName: {
-//     fontSize: 24,
-//     fontWeight: '600',
-//     color: colors.textPrimary,
-//     marginBottom: 4,
-//   },
-//   userStatus: {
-//     fontSize: 14,
-//     color: colors.textSecondary,
-//   },
-//   optionsContainer: {
-//     marginTop: 20,
-//   },
-//   optionItem: {
-//     flexDirection: 'row',
-//     alignItems: 'center',
-//     paddingHorizontal: 20,
-//     paddingVertical: 16,
-//     borderBottomWidth: 1,
-//     borderBottomColor: colors.borderColor,
-//   },
-//   optionLabel: {
-//     flex: 1,
-//     fontSize: 16,
-//     color: colors.textPrimary,
-//     marginLeft: 20,
-//   },
-//   logoutButton: {
-//     margin: 20,
-//     padding: 16,
-//     backgroundColor: colors.danger,
-//     borderRadius: 8,
-//     alignItems: 'center',
-//   },
-//   logoutText: {
-//     color: colors.white,
-//     fontSize: 16,
-//     fontWeight: '600',
-//   },
-// });
-
-// export default ProfileScreen;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// ===== src/screens/ProfileScreen.js =====
-import React from 'react';
+// src/screens/ProfileScreen.js
+import React, {useState, useEffect} from 'react';
 import {
   View,
   Text,
@@ -143,12 +7,92 @@ import {
   StyleSheet,
   ScrollView,
   Platform,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import colors from '../styles/colors';
+import api from '../services/api';
+import websocket from '../services/websocket';
 
 const ProfileScreen = ({navigation}) => {
+  const [userData, setUserData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  
+  useEffect(() => {
+    loadUserData();
+  }, []);
+  
+  const loadUserData = async () => {
+    try {
+      const userStr = await AsyncStorage.getItem('userData');
+      if (userStr) {
+        setUserData(JSON.parse(userStr));
+      }
+    } catch (error) {
+      console.error('Error loading user data:', error);
+    }
+  };
+  
+  const handleLogout = async () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setLoading(true);
+              
+              // Call logout API
+              await api.logout();
+              
+              // Disconnect websocket
+              websocket.disconnect();
+              
+              // Clear local storage
+              await AsyncStorage.multiRemove([
+                'authToken',
+                'userData',
+                'lastUsedCountryCode'
+              ]);
+              
+              // Navigate to login screen and reset navigation stack
+              navigation.reset({
+                index: 0,
+                routes: [{name: 'Login'}],
+              });
+              
+            } catch (error) {
+              console.error('Logout error:', error);
+              Alert.alert('Error', 'Failed to logout. Please try again.');
+            } finally {
+              setLoading(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+  
+  const getInitials = (name) => {
+    if (!name) return '??';
+    return name
+      .split(' ')
+      .map(word => word[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
   const profileOptions = [
     {icon: 'person-outline', label: 'Edit Profile', onPress: () => {}},
     {icon: 'image-outline', label: 'Change Avatar', onPress: () => {}},
@@ -170,17 +114,24 @@ const ProfileScreen = ({navigation}) => {
             <LinearGradient
               colors={['#FF6B6B', '#4ECDC4']}
               style={styles.avatarGradient}>
-              <Text style={styles.avatarText}>JD</Text>
+              <Text style={styles.avatarText}>
+                {getInitials(userData?.name)}
+              </Text>
             </LinearGradient>
             <TouchableOpacity style={styles.cameraButton}>
               <Icon name="camera" size={20} color={colors.white} />
             </TouchableOpacity>
           </View>
-          <Text style={styles.userName}>John Doe</Text>
-          <Text style={styles.userPhone}>+1 234 567 890</Text>
+          <Text style={styles.userName}>{userData?.name || 'Loading...'}</Text>
+          {userData?.username && (
+            <Text style={styles.userUsername}>@{userData.username}</Text>
+          )}
+          <Text style={styles.userPhone}>{userData?.phone || ''}</Text>
           <View style={styles.statusContainer}>
             <Icon name="chatbubble-ellipses-outline" size={16} color="rgba(255,255,255,0.8)" />
-            <Text style={styles.userStatus}>Hey there! I'm using Chatry</Text>
+            <Text style={styles.userStatus}>
+              {userData?.status || "Hey there! I'm using Chatry"}
+            </Text>
           </View>
         </View>
       </LinearGradient>
@@ -201,9 +152,19 @@ const ProfileScreen = ({navigation}) => {
         ))}
       </View>
 
-      <TouchableOpacity style={styles.logoutButton} activeOpacity={0.8}>
-        <Icon name="log-out-outline" size={20} color={colors.danger} />
-        <Text style={styles.logoutText}>Log Out</Text>
+      <TouchableOpacity 
+        style={[styles.logoutButton, loading && styles.logoutButtonDisabled]} 
+        activeOpacity={0.8}
+        onPress={handleLogout}
+        disabled={loading}>
+        {loading ? (
+          <ActivityIndicator color={colors.danger} />
+        ) : (
+          <>
+            <Icon name="log-out-outline" size={20} color={colors.danger} />
+            <Text style={styles.logoutText}>Log Out</Text>
+          </>
+        )}
       </TouchableOpacity>
     </ScrollView>
   );
@@ -254,6 +215,11 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '700',
     color: colors.white,
+    marginBottom: 4,
+  },
+  userUsername: {
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.9)',
     marginBottom: 4,
   },
   userPhone: {
@@ -315,6 +281,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.danger,
+  },
+  logoutButtonDisabled: {
+    opacity: 0.6,
   },
   logoutText: {
     color: colors.danger,

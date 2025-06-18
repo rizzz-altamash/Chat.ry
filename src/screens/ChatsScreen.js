@@ -200,7 +200,7 @@ const ChatsScreen = ({navigation}) => {
         contentContainerStyle={styles.listContent}
       />
       
-      <FloatingButton icon="create-outline" onPress={() => {}} />
+      <FloatingButton icon="create-outline" onPress={() => navigation.navigate('Contacts')} />
     </View>
   );
 };

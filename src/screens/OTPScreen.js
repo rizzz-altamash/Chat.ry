@@ -153,7 +153,7 @@ const OTPScreen = ({navigation, route}) => {
           <Text style={styles.title}>Verify Phone Number</Text>
           <Text style={styles.subtitle}>
             We've sent a 6-digit code to{'\n'}
-            <Text style={styles.phoneNumber}>{countryCode} {phone}</Text>
+            <Text style={styles.phoneNumber}>{phone}</Text>
           </Text>
 
           {__DEV__ && showHint && (
