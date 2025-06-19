@@ -1,251 +1,12 @@
-// // ===== src/services/api.js =====
-// import AsyncStorage from '@react-native-async-storage/async-storage';
-
-// class ApiService {
-//   constructor() {
-//     // Replace with your computer's IP address
-//     this.baseURL = 'http://192.168.1.7:3000/api'; // CHANGE THIS TO YOUR IP!
-//   }
-
-//   async getHeaders() {
-//     const token = await AsyncStorage.getItem('authToken');
-//     return {
-//       'Content-Type': 'application/json',
-//       'Authorization': token ? `Bearer ${token}` : ''
-//     };
-//   }
-
-//   async request(endpoint, options = {}) {
-//     try {
-//       const headers = await this.getHeaders();
-//       const url = `${this.baseURL}${endpoint}`;
-      
-//       console.log('🚀 API Request:', {
-//         url,
-//         method: options.method || 'GET',
-//         headers,
-//         body: options.body
-//       });
-      
-//       const response = await fetch(url, {
-//         ...options,
-//         headers: {
-//           ...headers,
-//           ...options.headers
-//         }
-//       });
-
-//       console.log('📥 Response Status:', response.status);
-//       console.log('📥 Response Headers:', response.headers);
-      
-//       const text = await response.text();
-//       console.log('📥 Response Text:', text);
-      
-//       let data;
-//       try {
-//         data = JSON.parse(text);
-//       } catch (e) {
-//         console.error('❌ Failed to parse JSON:', text);
-//         throw new Error('Invalid JSON response');
-//       }
-
-//       if (!response.ok) {
-//         console.error('❌ API Error:', data);
-//         throw new Error(data.error || 'Request failed');
-//       }
-
-//       return data;
-//     } catch (error) {
-//       console.error('❌ Request failed:', error);
-//       throw error;
-//     }
-//   }
-
-//   // Helper function to parse phone number
-//   parsePhoneNumber(fullPhoneNumber) {
-//     // If already has country code
-//     if (fullPhoneNumber.startsWith('+')) {
-//       // Match country code and rest of the number
-//       // Supports +1, +91, +971, +65, etc.
-//       const match = fullPhoneNumber.match(/^(\+\d{1,4})(\d+)$/);
-//       if (match) {
-//         return {
-//           countryCode: match[1],
-//           phone: match[2]
-//         };
-//       }
-//     }
-    
-//     // If no country code, assume it's just the number
-//     return {
-//       countryCode: '+91', // Default to India
-//       phone: fullPhoneNumber
-//     };
-//   }
-
-//   // Auth endpoints
-//   async login(phone, password) {
-//     const response = await this.request('/auth/login', {
-//       method: 'POST',
-//       body: JSON.stringify({ phone, password })
-//     });
-
-//     if (response.token) {
-//       await AsyncStorage.setItem('authToken', response.token);
-//       await AsyncStorage.setItem('userData', JSON.stringify(response.user));
-//     }
-
-//     return response;
-//   }
-
-//   async register(name, phone, password) {
-//     const response = await this.request('/auth/register', {
-//       method: 'POST',
-//       body: JSON.stringify({ name, phone, password })
-//     });
-
-//     if (response.token) {
-//       await AsyncStorage.setItem('authToken', response.token);
-//       await AsyncStorage.setItem('userData', JSON.stringify(response.user));
-//     }
-
-//     return response;
-//   }
-
-//   async logout() {
-//     await this.request('/auth/logout', {
-//       method: 'POST'
-//     });
-    
-//     await AsyncStorage.removeItem('authToken');
-//     await AsyncStorage.removeItem('userData');
-//   }
-
-//   // User endpoints
-//   async getProfile() {
-//     return this.request('/users/profile');
-//   }
-
-//   async updateProfile(data) {
-//     return this.request('/users/profile', {
-//       method: 'PUT',
-//       body: JSON.stringify(data)
-//     });
-//   }
-
-//   async searchUsers(query) {
-//     return this.request(`/users/search?query=${encodeURIComponent(query)}`);
-//   }
-
-//   async addContact(userId) {
-//     return this.request('/users/contacts', {
-//       method: 'POST',
-//       body: JSON.stringify({ userId })
-//     });
-//   }
-
-//   async getContacts() {
-//     return this.request('/users/contacts');
-//   }
-
-//   // Message endpoints
-//   async getChats() {
-//     return this.request('/messages/chats');
-//   }
-
-//   async getChatMessages(chatId, page = 1) {
-//     return this.request(`/messages/chat/${chatId}?page=${page}`);
-//   }
-
-//   async sendMessage(recipientId, text) {
-//     return this.request('/messages/send', {
-//       method: 'POST',
-//       body: JSON.stringify({ recipientId, text })
-//     });
-//   }
-
-//   // Group endpoints
-//   async getGroups() {
-//     return this.request('/groups');
-//   }
-
-//   async createGroup(name, description, memberIds) {
-//     return this.request('/groups/create', {
-//       method: 'POST',
-//       body: JSON.stringify({ name, description, memberIds })
-//     });
-//   }
-
-//   async getGroupMessages(groupId, page = 1) {
-//     return this.request(`/groups/${groupId}/messages?page=${page}`);
-//   }
-
-//   // Add these new methods to your existing api.js:
-
-//     async sendOTP(phone) {
-//     return this.request('/auth/send-otp', {
-//         method: 'POST',
-//         body: JSON.stringify({ phone })
-//     });
-//     }
-
-//     async verifyOTP(phone, otp, name, username, password) {
-//     const response = await this.request('/auth/verify-otp', {
-//         method: 'POST',
-//         body: JSON.stringify({ phone, otp, name, username, password })
-//     });
-
-//     if (response.token) {
-//         await AsyncStorage.setItem('authToken', response.token);
-//         await AsyncStorage.setItem('userData', JSON.stringify(response.user));
-//     }
-
-//     return response;
-//     }
-
-//     async syncContacts(contacts) {
-//     return this.request('/contacts/sync', {
-//         method: 'POST',
-//         body: JSON.stringify({ contacts })
-//     });
-//     }
-
-//     async searchByUsername(username) {
-//     return this.request(`/contacts/search?username=${username}`);
-//     }
-// }
-
-// export default new ApiService();
-
-
-
-
-
-
-
-
-
-
-
-
 // src/services/api.js
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 class ApiService {
   constructor() {
     // Replace with your computer's IP address
-    this.baseURL = 'http://192.168.1.7:3000/api'; // CHANGE THIS TO YOUR IP!
+    this.baseURL = 'http://192.168.1.4:3000/api'; // CHANGE THIS TO YOUR IP!
   }
 
-  // async getHeaders() {
-  //   const token = await AsyncStorage.getItem('authToken');
-  //   return {
-  //     'Content-Type': 'application/json',
-  //     'Authorization': token ? `Bearer ${token}` : ''
-  //   };
-  // }
-
-  // Update getHeaders to handle optional auth
   async getHeaders(requireAuth = true) {
     const headers = {
       'Content-Type': 'application/json'
@@ -491,6 +252,10 @@ class ApiService {
     return this.request('/users/profile');
   }
 
+  async getUserInfo(userId) {
+    return this.request(`/users/${userId}/info`);
+  }
+
   async updateProfile(data) {
     return this.request('/users/profile', {
       method: 'PUT',
@@ -593,6 +358,35 @@ class ApiService {
     return this.request(`/groups/${groupId}`, {
       method: 'PUT',
       body: JSON.stringify(data)
+    });
+  }
+
+  async reportGroupMember(groupId, memberId, reason) {
+    return this.request(`/groups/${groupId}/report/${memberId}`, {
+      method: 'POST',
+      body: JSON.stringify({ reason })
+    });
+  }
+
+  // Make member admin
+  async makeAdmin(groupId, memberId) {
+    return this.request(`/groups/${groupId}/admin/${memberId}`, {
+      method: 'POST'
+    });
+  }
+
+  // Remove admin privileges
+  async removeAdmin(groupId, memberId) {
+    return this.request(`/groups/${groupId}/admin/${memberId}`, {
+      method: 'DELETE'
+    });
+  }
+
+  // Update group settings
+  async updateGroupSettings(groupId, settings) {
+    return this.request(`/groups/${groupId}/settings`, {
+      method: 'PUT',
+      body: JSON.stringify(settings)
     });
   }
 }

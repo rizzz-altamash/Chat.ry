@@ -6,20 +6,79 @@ const OTP = require('../models/OTP');
 const { sendSMS } = require('../services/smsService');
 
 // Send OTP for registration
+// const sendRegistrationOTP = async (req, res, next) => {
+//   try {
+//     const { phone } = req.body;
+
+//     // Extract country code
+//     const countryCodeMatch = phone.match(/^\+\d{1,4}/);
+//     const countryCode = countryCodeMatch ? countryCodeMatch[0] : '+91';
+    
+//     // Validate phone number format
+//     const phoneRegex = /^[0-9]{6,15}$/;
+//     if (!phoneRegex.test(phone)) {
+//       return res.status(400).json({ error: 'Invalid phone number format' });
+//     }
+    
+//     const fullPhone = countryCode + phone;
+    
+//     // Check if already registered
+//     const existingUser = await User.findOne({ phone: fullPhone });
+//     if (existingUser && existingUser.isPhoneVerified) {
+//       return res.status(400).json({ error: 'Phone number already registered' });
+//     }
+    
+//     // Generate OTP
+//     const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    
+//     // Save OTP to database
+//     await OTP.findOneAndUpdate(
+//       { phone: fullPhone, purpose: 'registration' },
+//       { otp, attempts: 0 },
+//       { upsert: true, new: true }
+//     );
+    
+//     // Send SMS (production)
+//     if (process.env.NODE_ENV === 'production') {
+//       await sendSMS(fullPhone, `Your Chatry verification code is: ${otp}`);
+//     } else {
+//       // Development: Log OTP
+//       console.log(`📱 OTP for ${fullPhone}: ${otp}`);
+//     }
+    
+//     res.json({ 
+//       message: 'OTP sent successfully',
+//       phone: fullPhone,
+//       ...(process.env.NODE_ENV !== 'production' && { dev_otp: otp })
+//     });
+    
+//   } catch (error) {
+//     next(error);
+//   }
+// };
+
 const sendRegistrationOTP = async (req, res, next) => {
   try {
-    const { phone } = req.body;
-
-    // Extract country code
-    const countryCodeMatch = phone.match(/^\+\d{1,4}/);
-    const countryCode = countryCodeMatch ? countryCodeMatch[0] : '+91';
+    const { phone, countryCode } = req.body; // Frontend sends these separately
     
-    // Validate phone number format
-    const phoneRegex = /^[0-9]{10}$/;
+    // Validate inputs
+    if (!phone || !countryCode) {
+      return res.status(400).json({ error: 'Phone number and country code are required' });
+    }
+    
+    // Validate phone number format (without country code)
+    const phoneRegex = /^[0-9]{6,15}$/;
     if (!phoneRegex.test(phone)) {
       return res.status(400).json({ error: 'Invalid phone number format' });
     }
     
+    // Validate country code format
+    const countryCodeRegex = /^\+\d{1,4}$/;
+    if (!countryCodeRegex.test(countryCode)) {
+      return res.status(400).json({ error: 'Invalid country code format' });
+    }
+    
+    // Combine to create full phone number
     const fullPhone = countryCode + phone;
     
     // Check if already registered

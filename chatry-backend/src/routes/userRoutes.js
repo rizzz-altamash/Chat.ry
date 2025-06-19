@@ -2,6 +2,7 @@
 const express = require('express');
 const {
   getProfile,
+  getUserInfo,
   updateProfile,
   searchUsers,
   addContact,
@@ -17,6 +18,7 @@ const router = express.Router();
 router.use(authenticate);
 
 router.get('/profile', getProfile);
+router.get('/:userId/info', getUserInfo);
 router.put('/profile', updateProfile);
 router.get('/search', searchUsers);
 router.post('/contacts', addContact);

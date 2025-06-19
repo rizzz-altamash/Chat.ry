@@ -27,6 +27,7 @@
 // ===== src/styles/colors.js =====
 export default {
   // Primary gradient colors
+  primary: '#11998e',
   gradientStart: '#11998e',
   gradientEnd: '#a1ffce',
   
@@ -70,4 +71,11 @@ export default {
   warning: '#FFD93D',
   danger: '#FF6B6B',
   info: '#4A90E2',
+
+  settingHint: {
+    fontSize: 12,
+    color: colors.gray6,
+    marginTop: 2,
+    fontStyle: 'italic',
+  },
 };

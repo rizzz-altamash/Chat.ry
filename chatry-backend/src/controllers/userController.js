@@ -10,6 +10,60 @@ const getProfile = async (req, res, next) => {
   }
 };
 
+// Get user info (for viewing profiles)
+const getUserInfo = async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    const requesterId = req.user._id;
+    
+    const user = await User.findById(userId).select('-password');
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Check if requester has user's phone number saved
+    const requester = await User.findById(requesterId);
+    const hasPhoneSaved = requester.contacts.some(
+      contact => contact.user.toString() === userId
+    );
+    
+    // Build response based on privacy settings and contact status
+    const userInfo = {
+      _id: user._id,
+      name: user.name,
+      username: user.username,
+      avatar: user.avatar,
+      isOnline: user.isOnline,
+      lastSeen: user.lastSeen,
+      createdAt: user.createdAt
+    };
+    
+    // Add status based on privacy settings
+    if (user.privacy.status === 'everyone' || 
+        (user.privacy.status === 'contacts' && hasPhoneSaved)) {
+      userInfo.status = user.status;
+    }
+    
+    // Add phone only if saved in contacts
+    if (hasPhoneSaved) {
+      userInfo.phone = user.phone;
+    }
+    
+    // Check if they have a chat
+    const chat = await Chat.findOne({
+      participants: { $all: [requesterId, userId] }
+    });
+    
+    if (chat) {
+      userInfo.chatId = chat._id;
+    }
+    
+    res.json({ user: userInfo, hasPhoneSaved });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const updateProfile = async (req, res, next) => {
   try {
     const { name, status, avatar } = req.body;
@@ -145,6 +199,7 @@ const unblockUser = async (req, res, next) => {
 
 module.exports = {
   getProfile,
+  getUserInfo,
   updateProfile,
   searchUsers,
   addContact,
