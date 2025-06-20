@@ -1,29 +1,3 @@
-// // ===== src/styles/colors.js =====
-// export default {
-//   primary: '#128C7E', // Teal (similar to WhatsApp but slightly different)
-//   primaryDark: '#075E54',
-//   secondary: '#25D366',
-//   white: '#FFFFFF',
-//   black: '#000000',
-//   gray: '#8E8E93',
-//   lightGray: '#F0F0F0',
-//   chatBackground: '#E5DDD5',
-//   sentMessage: '#DCF8C6',
-//   receivedMessage: '#FFFFFF',
-//   inputBackground: '#F6F6F6',
-//   borderColor: '#E8E8E8',
-//   danger: '#FF3B30',
-//   online: '#25D366',
-//   textPrimary: '#000000',
-//   textSecondary: '#8E8E93',
-// };
-
-
-
-
-
-
-
 // ===== src/styles/colors.js =====
 export default {
   // Primary gradient colors
