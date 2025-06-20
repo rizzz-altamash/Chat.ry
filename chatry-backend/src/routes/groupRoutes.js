@@ -11,7 +11,8 @@ const {
   reportGroupMember,
   updateGroupSettings,
   makeAdmin,
-  removeAdmin
+  removeAdmin,
+  deleteGroupFromList
 } = require('../controllers/groupController');
 const authenticate = require('../middleware/auth');
 
@@ -31,5 +32,6 @@ router.post('/:groupId/report/:memberId', reportGroupMember);
 router.put('/:groupId/settings', updateGroupSettings);
 router.post('/:groupId/admin/:memberId', makeAdmin);
 router.delete('/:groupId/admin/:memberId', removeAdmin);
+router.delete('/:groupId/delete-from-list', deleteGroupFromList);
 
 module.exports = router;

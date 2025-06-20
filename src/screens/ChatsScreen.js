@@ -9,6 +9,7 @@ import {
   Platform,
   RefreshControl,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
@@ -56,8 +57,9 @@ const ChatsScreen = ({navigation}) => {
     
     // Generate consistent index from user ID
     let hash = 0;
-    for (let i = 0; i < userId.length; i++) {
-      hash = userId.charCodeAt(i) + ((hash << 5) - hash);
+    const userIdStr = String(userId);
+    for (let i = 0; i < userIdStr.length; i++) {
+      hash = userIdStr.charCodeAt(i) + ((hash << 5) - hash);
     }
     
     const index = Math.abs(hash) % colors.length;
@@ -69,25 +71,55 @@ const ChatsScreen = ({navigation}) => {
       setLoading(true);
       const response = await api.getChats();
       
-      // Transform chats data for display
-      const transformedChats = response.chats.map((chat, index) => ({
-        id: chat._id,
-        chatId: chat.participant._id || chat.participant.id,
-        name: chat.participant.name || chat.participant.username,
-        username: chat.participant.username,
-        avatar: chat.participant.avatar,
-        lastMessage: chat.lastMessage?.text || '',
-        time: formatMessageTime(chat.lastMessage?.createdAt || chat.lastActivity),
-        unreadCount: chat.unreadCount || 0,
-        isOnline: chat.participant.isOnline,
-        isTyping: chat.isTyping,
-        color: getColorForUser(chat.participant._id || chat.participant.id),
-        participant: chat.participant
-      }));
+      // Add validation
+      if (!response || !response.chats) {
+        console.error('Invalid response structure:', response);
+        setChats([]);
+        return;
+      }
+      
+      // Transform chats data for display with safety checks
+      const transformedChats = response.chats
+        .filter(chat => {
+          // Filter out invalid chats
+          if (!chat || !chat.participant) {
+            console.warn('Invalid chat structure:', chat);
+            return false;
+          }
+          return true;
+        })
+        .map((chat, index) => {
+          try {
+            // Safely extract participant data
+            const participantId = chat.participant?._id || chat.participant?.id;
+            const participantName = chat.participant?.name || chat.participant?.username || 'Unknown User';
+            
+            return {
+              id: chat._id || `chat_${index}`,
+              chatId: participantId || 'unknown',
+              name: participantName,
+              username: chat.participant?.username || null,
+              avatar: chat.participant?.avatar || null,
+              lastMessage: chat.lastMessage?.text || '',
+              time: formatMessageTime(chat.lastMessage?.createdAt || chat.lastActivity),
+              unreadCount: chat.unreadCount || 0,
+              isOnline: chat.participant?.isOnline || false,
+              isTyping: chat.isTyping || false,
+              color: getColorForUser(participantId),
+              participant: chat.participant || {}
+            };
+          } catch (err) {
+            console.error('Error transforming chat:', err, chat);
+            return null;
+          }
+        })
+        .filter(chat => chat !== null); // Remove any failed transformations
       
       setChats(transformedChats);
     } catch (error) {
       console.error('Error loading chats:', error);
+      Alert.alert('Error', 'Failed to load chats');
+      setChats([]); // Set empty array on error
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -147,23 +179,34 @@ const ChatsScreen = ({navigation}) => {
   const formatMessageTime = (timestamp) => {
     if (!timestamp) return '';
     
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffInHours = (now - date) / (1000 * 60 * 60);
-    
-    if (diffInHours < 24) {
-      // Today - show time
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    } else if (diffInHours < 48) {
-      return 'Yesterday';
-    } else if (diffInHours < 168) { // 7 days
-      return date.toLocaleDateString([], { weekday: 'long' });
-    } else {
-      return date.toLocaleDateString();
+    try {
+      const date = new Date(timestamp);
+      const now = new Date();
+      const diffInHours = (now - date) / (1000 * 60 * 60);
+      
+      if (diffInHours < 24) {
+        // Today - show time
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      } else if (diffInHours < 48) {
+        return 'Yesterday';
+      } else if (diffInHours < 168) { // 7 days
+        return date.toLocaleDateString([], { weekday: 'long' });
+      } else {
+        return date.toLocaleDateString();
+      }
+    } catch (err) {
+      console.error('Error formatting time:', err);
+      return '';
     }
   };
 
   const handleChatPress = (chat) => {
+    // Validate chat data before navigation
+    if (!chat || !chat.chatId || chat.chatId === 'unknown') {
+      Alert.alert('Error', 'Cannot open this chat');
+      return;
+    }
+    
     navigation.navigate('ChatDetail', {
       chatId: chat.chatId,
       chatName: chat.name,
@@ -188,6 +231,17 @@ const ChatsScreen = ({navigation}) => {
       </Text>
     </View>
   );
+
+  const renderChatItem = ({item}) => {
+    if (!item) return null;
+    
+    return (
+      <ChatItem 
+        chat={item} 
+        onPress={() => handleChatPress(item)} 
+      />
+    );
+  };
 
   if (loading && !refreshing) {
     return (
@@ -229,9 +283,7 @@ const ChatsScreen = ({navigation}) => {
       <FlatList
         data={chats}
         keyExtractor={(item) => item.id}
-        renderItem={({item}) => (
-          <ChatItem chat={item} onPress={() => handleChatPress(item)} />
-        )}
+        renderItem={renderChatItem}
         contentContainerStyle={[
           styles.listContent,
           chats.length === 0 && styles.emptyListContent
@@ -316,4 +368,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ChatsScreen; 
+export default ChatsScreen;

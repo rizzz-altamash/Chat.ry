@@ -20,8 +20,10 @@ const ChatItem = ({chat, onPress}) => {
       .slice(0, 2);
   };
 
+  const isLeftGroup = chat.isLeftGroup;
+
   return (
-    <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.7}>
+    <TouchableOpacity style={[styles.container, isLeftGroup && styles.leftGroupContainer]} onPress={onPress} activeOpacity={0.7}>
       <View style={styles.leftSection}>
         <View style={styles.avatarContainer}>
           {chat.avatar ? (
@@ -60,6 +62,14 @@ const ChatItem = ({chat, onPress}) => {
           </View>
         )}
       </View>
+
+      {isLeftGroup && (
+        <View style={styles.leftGroupBadge}>
+          <Text style={styles.leftGroupBadgeText}>
+            {chat.leftReason === 'removed' ? 'Removed' : 'Left'}
+          </Text>
+        </View>
+      )}
     </TouchableOpacity>
   );
 };
@@ -154,6 +164,24 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: 12,
     fontWeight: '700',
+  },
+  leftGroupContainer: {
+    opacity: 0.7,
+    backgroundColor: colors.gray1,
+  },
+  leftGroupBadge: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: colors.warning,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  leftGroupBadgeText: {
+    fontSize: 11,
+    color: colors.white,
+    fontWeight: '600',
   },
 });
 

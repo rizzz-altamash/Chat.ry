@@ -109,6 +109,22 @@ const userSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Group'
   }],
+
+  leftGroups: [{
+    group: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Group'
+    },
+    leftAt: {
+      type: Date,
+      default: Date.now
+    },
+    reason: {
+      type: String,
+      enum: ['left', 'removed', 'removed_reports'],
+      default: 'left'
+    }
+  }],
   
   // Push Notifications
   fcmToken: String, // Firebase Cloud Messaging token

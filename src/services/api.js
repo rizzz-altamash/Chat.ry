@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 class ApiService {
   constructor() {
     // Replace with your computer's IP address
-    this.baseURL = 'http://192.168.1.4:3000/api'; // CHANGE THIS TO YOUR IP!
+    this.baseURL = 'http://192.168.1.6:3000/api'; // CHANGE THIS TO YOUR IP!
   }
 
   async getHeaders(requireAuth = true) {
@@ -57,13 +57,23 @@ class ApiService {
 
       if (!response.ok) {
         console.error('❌ API Error:', data);
+        // Check if error has _id property issue
+        if (data.error && typeof data.error === 'object') {
+          throw new Error('Server error: Invalid data structure');
+        }
         throw new Error(data.error || 'Request failed');
       }
 
       return data;
     } catch (error) {
       console.error('❌ Request failed:', error);
-      throw error;
+      // throw error;
+      
+      // Don't try to access error._id if error might be undefined
+      if (error && error.message) {
+        throw error;
+      }
+      throw new Error('Network request failed');
     }
   }
 
@@ -387,6 +397,12 @@ class ApiService {
     return this.request(`/groups/${groupId}/settings`, {
       method: 'PUT',
       body: JSON.stringify(settings)
+    });
+  }
+
+  async deleteGroupFromList(groupId) {
+    return this.request(`/groups/${groupId}/delete-from-list`, {
+      method: 'DELETE'
     });
   }
 }

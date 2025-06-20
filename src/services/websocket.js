@@ -6,7 +6,7 @@ class WebSocketService {
   constructor() {
     this.socket = null;
     // Replace with your computer's IP address
-    this.url = 'http://192.168.1.4:3000'; // CHANGE THIS TO YOUR IP!
+    this.url = 'http://192.168.1.6:3000'; // CHANGE THIS TO YOUR IP!
     this.token = null;
     this.messageHandlers = [];
     this.connected = false;

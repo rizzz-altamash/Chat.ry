@@ -103,7 +103,7 @@ const messageSchema = new mongoose.Schema({
   metadata: {
     action: {
       type: String,
-      enum: ['member_added', 'member_removed', 'member_left', 'group_created', 'group_updated']
+      enum: ['member_added', 'member_removed', 'member_left', 'group_created', 'group_updated', 'member_made_admin', 'admin_removed', 'member_auto_removed', 'group_name_changed', 'group_description_changed']
     },
     addedBy: {
       type: mongoose.Schema.Types.ObjectId,

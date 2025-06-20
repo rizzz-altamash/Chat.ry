@@ -84,14 +84,11 @@ const getMessages = async (req, res, next) => {
     .limit(limit * 1)
     .skip((page - 1) * limit);
 
-    // Reset unread count for current user
-    chat.unreadCount.set(userId.toString(), 0);
-    await chat.save();
-
     res.json({
       messages: messages.reverse(),
       page: parseInt(page),
-      hasMore: messages.length === parseInt(limit)
+      hasMore: messages.length === parseInt(limit),
+      chatId: chat._id // ✅ Add chatId in response for frontend
     });
   } catch (error) {
     next(error);
@@ -105,7 +102,7 @@ const getChats = async (req, res, next) => {
     const chats = await Chat.find({
       participants: userId
     })
-    .populate('participants', 'name avatar status isOnline lastSeen')
+    .populate('participants', 'name avatar status isOnline lastSeen username')
     .populate({
       path: 'lastMessage',
       populate: {
@@ -115,24 +112,57 @@ const getChats = async (req, res, next) => {
     })
     .sort({ lastActivity: -1 });
 
-    // Format chats for response
-    const formattedChats = chats.map(chat => {
-      const otherParticipant = chat.participants.find(
-        p => p._id.toString() !== userId.toString()
-      );
+    // Format chats for response with proper error handling
+    const formattedChats = [];
+    
+    for (const chat of chats) {
+      try {
+        // Make sure participants array exists and has valid data
+        if (!chat.participants || chat.participants.length < 2) {
+          console.warn(`Chat ${chat._id} has invalid participants`);
+          continue;
+        }
 
-      return {
-        _id: chat._id,
-        participant: otherParticipant,
-        lastMessage: chat.lastMessage,
-        lastActivity: chat.lastActivity,
-        unreadCount: chat.unreadCount.get(userId.toString()) || 0,
-        isTyping: chat.isTyping.get(otherParticipant._id.toString()) || false
-      };
-    });
+        // Find other participant
+        const otherParticipant = chat.participants.find(
+          p => p && p._id && p._id.toString() !== userId.toString()
+        );
+
+        // Skip this chat if other participant is not found or deleted
+        if (!otherParticipant) {
+          console.warn(`Chat ${chat._id} has no valid other participant`);
+          continue;
+        }
+
+        // Create formatted chat object
+        const formattedChat = {
+          _id: chat._id,
+          participant: {
+            _id: otherParticipant._id,
+            id: otherParticipant._id, // Add both _id and id for compatibility
+            name: otherParticipant.name || 'Unknown User',
+            avatar: otherParticipant.avatar || null,
+            status: otherParticipant.status || '',
+            isOnline: otherParticipant.isOnline || false,
+            lastSeen: otherParticipant.lastSeen || null,
+            username: otherParticipant.username || null
+          },
+          lastMessage: chat.lastMessage || null,
+          lastActivity: chat.lastActivity,
+          unreadCount: chat.unreadCount?.get(userId.toString()) || 0,
+          isTyping: chat.isTyping?.get(otherParticipant._id.toString()) || false
+        };
+
+        formattedChats.push(formattedChat);
+      } catch (err) {
+        console.error(`Error formatting chat ${chat._id}:`, err);
+        continue;
+      }
+    }
 
     res.json({ chats: formattedChats });
   } catch (error) {
+    console.error('Error in getChats:', error);
     next(error);
   }
 };
