@@ -280,9 +280,23 @@ const GroupsScreen = ({navigation}) => {
     if (!item) return null;
 
     const isLeftGroup = item.isLeft || false;
-    const lastMessageDisplay = item.lastMessageSender 
-      ? `${item.lastMessageSender}: ${item.lastMessage}`
-      : item.lastMessage || 'No messages yet'; // Add fallback
+    // const lastMessageDisplay = item.lastMessageSender 
+    //   ? `${item.lastMessageSender}: ${item.lastMessage}`
+    //   : item.lastMessage || 'No messages yet'; // Add fallback
+
+    // Format the last message display
+    let lastMessageDisplay;
+    
+    if (item.lastMessageSender) {
+      // Check if the sender is the current user
+      if (item.isLastMessageMine) {
+        lastMessageDisplay = `You: ${item.lastMessage}`;
+      } else {
+        lastMessageDisplay = `${item.lastMessageSender}: ${item.lastMessage}`;
+      }
+    } else {
+      lastMessageDisplay = item.lastMessage || 'No messages yet';
+    }
 
     return (
       <ChatItem
