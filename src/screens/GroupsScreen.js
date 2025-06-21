@@ -62,12 +62,63 @@ const GroupsScreen = ({navigation}) => {
     return chatColors[index];
   };
 
+  // const loadGroups = async () => {
+  //   try {
+  //     setLoading(true);
+  //     const response = await api.getGroups();
+
+  //     // Add validation
+  //     if (!response || !response.groups) {
+  //       console.error('Invalid response structure:', response);
+  //       setGroups([]);
+  //       return;
+  //     }
+      
+  //     // Transform groups data for display
+  //     const transformedGroups = response.groups.map(group => {
+  //       // Check if this is a left group for current user
+  //       const isLeftGroup = group.isLeft || false;
+  //       const leftReason = group.leftReason || null;
+        
+  //       return {
+  //         id: group._id,
+  //         name: group.name,
+  //         description: group.description,
+  //         avatar: group.avatar,
+  //         lastMessage: group.lastMessage?.text || 'No messages yet',
+  //         lastMessageSender: group.lastMessage?.sender?.name || '',
+  //         time: formatMessageTime(group.lastMessage?.createdAt || group.lastActivity),
+  //         unreadCount: 0,
+  //         color: getColorForGroup(group._id),
+  //         memberCount: group.members?.length || 0,
+  //         isAdmin: group.admins?.includes(currentUserId),
+  //         members: group.members,
+  //         admins: group.admins,
+  //         creator: group.creator,
+  //         createdAt: group.createdAt,
+  //         settings: group.settings,
+  //         isTyping: false,
+  //         isLeft: isLeftGroup,
+  //         leftReason: leftReason,
+  //       };
+  //     });
+      
+  //     setGroups(transformedGroups);
+  //   } catch (error) {
+  //     console.error('Error loading groups:', error);
+  //     Alert.alert('Error', 'Failed to load groups');
+  //     setGroups([]); // Set empty array on error
+  //   } finally {
+  //     setLoading(false);
+  //     setRefreshing(false);
+  //   }
+  // };
+
   const loadGroups = async () => {
     try {
       setLoading(true);
       const response = await api.getGroups();
 
-      // Add validation
       if (!response || !response.groups) {
         console.error('Invalid response structure:', response);
         setGroups([]);
@@ -76,9 +127,22 @@ const GroupsScreen = ({navigation}) => {
       
       // Transform groups data for display
       const transformedGroups = response.groups.map(group => {
-        // Check if this is a left group for current user
         const isLeftGroup = group.isLeft || false;
         const leftReason = group.leftReason || null;
+
+        // Check if last message is mine and get its status
+        let isLastMessageMine = false;
+        let lastMessageStatus = null;
+        
+        if (group.lastMessage) {
+          const senderId = group.lastMessage.sender?._id || group.lastMessage.sender?.id || group.lastMessage.sender;
+          isLastMessageMine = String(senderId) === String(currentUserId);
+          
+          if (isLastMessageMine) {
+            // For groups, we need to check the group status
+            lastMessageStatus = group.lastMessage.groupStatus || 'sent';
+          }
+        }
         
         return {
           id: group._id,
@@ -87,8 +151,10 @@ const GroupsScreen = ({navigation}) => {
           avatar: group.avatar,
           lastMessage: group.lastMessage?.text || 'No messages yet',
           lastMessageSender: group.lastMessage?.sender?.name || '',
+          lastMessageStatus: lastMessageStatus, // Add this
+          isLastMessageMine: isLastMessageMine, // Add this
           time: formatMessageTime(group.lastMessage?.createdAt || group.lastActivity),
-          unreadCount: 0,
+          unreadCount: group.unreadCount || 0, // Use backend unread count
           color: getColorForGroup(group._id),
           memberCount: group.members?.length || 0,
           isAdmin: group.admins?.includes(currentUserId),
@@ -107,7 +173,7 @@ const GroupsScreen = ({navigation}) => {
     } catch (error) {
       console.error('Error loading groups:', error);
       Alert.alert('Error', 'Failed to load groups');
-      setGroups([]); // Set empty array on error
+      setGroups([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -117,9 +183,23 @@ const GroupsScreen = ({navigation}) => {
   const setupWebSocketListeners = () => {
     const handleWebSocketEvent = (event, data) => {
       switch (event) {
+        // case 'new_group_message':
+        //   // Reload groups to update last message
+        //   loadGroups();
+        //   break;
+
         case 'new_group_message':
-          // Reload groups to update last message
-          loadGroups();
+          // Reload groups to update unread count
+          if (data.message.sender !== currentUserId) {
+            loadGroups();
+          }
+          break;
+          
+        case 'group_message_status_update':
+          // Reload if messages were read
+          if (data.groupStatus === 'read') {
+            loadGroups();
+          }
           break;
           
         case 'group_created':

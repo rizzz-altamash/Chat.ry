@@ -63,6 +63,73 @@ const createGroup = async (req, res, next) => {
   }
 };
 
+// const getGroups = async (req, res, next) => {
+//   try {
+//     const userId = req.user._id;
+//     const user = await User.findById(userId)
+//       .populate({
+//         path: 'groups',
+//         populate: [
+//           { path: 'lastMessage' },
+//           { path: 'members.user', select: 'name avatar' },
+//           { path: 'creator', select: 'name' }
+//         ]
+//       })
+//       .populate({
+//         path: 'leftGroups.group',
+//         populate: [
+//           { path: 'lastMessage' },
+//           { path: 'members.user', select: 'name avatar' },
+//           { path: 'creator', select: 'name' }
+//         ]
+//       });
+    
+//     // Process active groups
+//     const activeGroups = (user.groups || []).map(group => ({
+//       ...group.toObject(),
+//       isLeft: false
+//     }));
+    
+//     // Process left groups with filtered last message
+//     const leftGroups = (user.leftGroups || [])
+//       .filter(lg => lg.group)
+//       .map(lg => {
+//         const groupData = lg.group.toObject();
+        
+//         // If lastMessage was sent after user left, don't show it
+//         if (groupData.lastMessage && 
+//             groupData.lastMessage.createdAt > lg.leftAt) {
+//           // Set appropriate message based on reason
+//           let messageText = 'You left this group';
+          
+//           if (lg.reason === 'removed') {
+//             messageText = 'You were removed from this group';
+//           } else if (lg.reason === 'removed_reports') {
+//             messageText = 'You were removed due to reports';
+//           }
+          
+//           groupData.lastMessage = {
+//             text: messageText,
+//             createdAt: lg.leftAt
+//           };
+//         }
+        
+//         return {
+//           ...groupData,
+//           isLeft: true,
+//           leftAt: lg.leftAt,
+//           leftReason: lg.reason
+//         };
+//       });
+    
+//     res.json({ 
+//       groups: [...activeGroups, ...leftGroups]
+//     });
+//   } catch (error) {
+//     next(error);
+//   }
+// };
+
 const getGroups = async (req, res, next) => {
   try {
     const userId = req.user._id;
@@ -70,7 +137,13 @@ const getGroups = async (req, res, next) => {
       .populate({
         path: 'groups',
         populate: [
-          { path: 'lastMessage' },
+          { 
+            path: 'lastMessage',
+            populate: {
+              path: 'sender',
+              select: 'name _id'
+            }
+          },
           { path: 'members.user', select: 'name avatar' },
           { path: 'creator', select: 'name' }
         ]
@@ -78,19 +151,61 @@ const getGroups = async (req, res, next) => {
       .populate({
         path: 'leftGroups.group',
         populate: [
-          { path: 'lastMessage' },
+          { 
+            path: 'lastMessage',
+            populate: {
+              path: 'sender',
+              select: 'name _id'
+            }
+          },
           { path: 'members.user', select: 'name avatar' },
           { path: 'creator', select: 'name' }
         ]
       });
     
-    // Process active groups
-    const activeGroups = (user.groups || []).map(group => ({
-      ...group.toObject(),
-      isLeft: false
+    // Process active groups with unread counts
+    const activeGroups = await Promise.all((user.groups || []).map(async group => {
+      // Find when user joined this group
+      const userMember = group.members.find(m => 
+        m.user._id.toString() === userId.toString()
+      );
+      const userJoinedAt = userMember?.joinedAt || group.createdAt;
+      
+      // Count unread messages for this user in this group
+      const unreadCount = await Message.countDocuments({
+        group: group._id,
+        sender: { $ne: userId },
+        type: { $ne: 'system' }, // Exclude system messages
+        'readBy.user': { $ne: userId },
+        deletedFor: { $ne: userId },
+        createdAt: { $gte: userJoinedAt } // Only messages after user joined
+      });
+
+      // If there's a last message, calculate its group status
+      if (group.lastMessage) {
+        group.lastMessage.totalGroupMembers = group.members.length;
+        
+        // Get the group status using the virtual or calculate it
+        const lastMsgObj = group.lastMessage.toObject({ virtuals: true });
+        lastMsgObj.totalGroupMembers = group.members.length;
+        
+        // Return group with updated last message
+        return {
+          ...group.toObject(),
+          lastMessage: lastMsgObj,
+          isLeft: false,
+          unreadCount
+        };
+      }
+      
+      return {
+        ...group.toObject(),
+        isLeft: false,
+        unreadCount
+      };
     }));
     
-    // Process left groups with filtered last message
+    // Process left groups
     const leftGroups = (user.leftGroups || [])
       .filter(lg => lg.group)
       .map(lg => {
@@ -99,7 +214,6 @@ const getGroups = async (req, res, next) => {
         // If lastMessage was sent after user left, don't show it
         if (groupData.lastMessage && 
             groupData.lastMessage.createdAt > lg.leftAt) {
-          // Set appropriate message based on reason
           let messageText = 'You left this group';
           
           if (lg.reason === 'removed') {
@@ -118,7 +232,8 @@ const getGroups = async (req, res, next) => {
           ...groupData,
           isLeft: true,
           leftAt: lg.leftAt,
-          leftReason: lg.reason
+          leftReason: lg.reason,
+          unreadCount: 0 // No unread for left groups
         };
       });
     
@@ -168,12 +283,53 @@ const getGroupMessages = async (req, res, next) => {
 
     const messages = await Message.find(messageQuery)
       .populate('sender', 'name avatar')
+      .populate('deliveredTo.user', '_id')
+      .populate('readBy.user', '_id')
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
 
+     // Add group member count to each message
+      const messagesWithStatus = messages.map(msg => {
+        // Set totalGroupMembers on the mongoose document BEFORE converting
+        msg.totalGroupMembers = group.members.length;
+        
+        // Convert to object WITH virtuals included
+        const msgObj = msg.toObject({ virtuals: true });
+        
+        // Also ensure totalGroupMembers is on the object
+        msgObj.totalGroupMembers = group.members.length;
+        
+        // If groupStatus is still undefined, calculate it manually
+        if (!msgObj.groupStatus) {
+          const otherMembers = group.members.length - 1;
+          const deliveredCount = msg.deliveredTo?.length || 0;
+          const readCount = msg.readBy?.length || 0;
+          
+          if (otherMembers === 0 || readCount >= otherMembers) {
+            msgObj.groupStatus = 'read';
+          } else if (deliveredCount >= otherMembers) {
+            msgObj.groupStatus = 'delivered';
+          } else {
+            msgObj.groupStatus = 'sent';
+          }
+        }
+        
+        // Debug
+        if (msg.sender && msg.sender._id && msg.sender._id.toString() === userId.toString()) {
+          console.log('Final message status:', {
+            text: msgObj.text.substring(0, 20),
+            totalMembers: msgObj.totalGroupMembers,
+            groupStatus: msgObj.groupStatus,
+            readByCount: msg.readBy.length
+          });
+        }
+        
+        return msgObj;
+      });
+
     res.json({
-      messages: messages.reverse(),
+      messages: messagesWithStatus.reverse(),
       page: parseInt(page),
       hasMore: messages.length === parseInt(limit),
       isLeftGroup: !isCurrentMember && !!leftGroupEntry,

@@ -147,11 +147,55 @@ const messageSchema = new mongoose.Schema({
   },
   editedAt: {
     type: Date
-  }
+  },
+  deliveredTo: [{
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    deliveredAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
 });
 
 // Index for faster queries
 messageSchema.index({ sender: 1, recipient: 1, createdAt: -1 });
 messageSchema.index({ group: 1, createdAt: -1 });
+
+// Add a virtual field to calculate group message status
+messageSchema.virtual('groupStatus').get(function() {
+  if (!this.group) return this.status;
+  
+  // Get from populated group or assume we'll populate it
+  const totalMembers = this.totalGroupMembers || 0;
+  const sender = this.sender;
+  
+  // Exclude sender from count
+  const otherMembersCount = totalMembers - 1;
+  
+  if (otherMembersCount === 0) return 'read'; // Only sender in group
+  
+  const deliveredCount = this.deliveredTo?.length || 0;
+  const readCount = this.readBy?.length || 0;
+
+  // Debug log
+  console.log('Virtual groupStatus calculation:', {
+    totalMembers,
+    otherMembersCount,
+    deliveredCount,
+    readCount
+  });
+  
+  if (readCount >= otherMembersCount) return 'read';
+  if (deliveredCount >= otherMembersCount) return 'delivered';
+  return 'sent';
+});
+
+// Update toJSON to include virtual fields
+messageSchema.set('toJSON', {
+  virtuals: true
+});
 
 module.exports = mongoose.model('Message', messageSchema);

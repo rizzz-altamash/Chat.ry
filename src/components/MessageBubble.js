@@ -4,15 +4,18 @@ import {View, Text, StyleSheet, ActivityIndicator} from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import colors from '../styles/colors';
 
-const MessageBubble = ({message, isSent}) => {
+const MessageBubble = ({message, isSent, isGroup = false}) => {
   const getStatusIcon = () => {
     if (!isSent) return null;
     
     if (message.sending) {
       return <ActivityIndicator size="small" color={colors.gray4} style={styles.statusIcon} />;
     }
+
+    // Use groupStatus for groups, regular status for private chats
+    const status = isGroup ? message.groupStatus : message.status;
     
-    switch (message.status) {
+    switch (status) {
       case 'sent':
         return (
           <Icon 
