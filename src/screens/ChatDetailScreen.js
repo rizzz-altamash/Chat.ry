@@ -263,6 +263,11 @@ const ChatDetailScreen = ({route, navigation}) => {
             };
             
             setMessages(prev => [...prev, newMessage]);
+
+            // 🆕 YEH ADD KARO - Immediately send delivered acknowledgment
+            if (data.message.status === 'sent') {
+              websocket.markAsDelivered([newMessage.id]);
+            }
             
             // Only mark as read if chat is currently visible and focused
             const isScreenFocused = navigation.isFocused();
@@ -440,6 +445,28 @@ const ChatDetailScreen = ({route, navigation}) => {
                   status: data.message.status,
                   tempId: data.tempId // Keep tempId for key
                 };
+              }
+              return msg;
+            }));
+          }
+          break;
+        
+        case 'messages_delivered':
+          if (!isGroup) {
+            setMessages(prev => prev.map(msg => {
+              if (data.messageIds.includes(msg.id) && msg.isSent) {
+                return {...msg, status: 'delivered'};
+              }
+              return msg;
+            }));
+          }
+          break;
+        
+        case 'message_status_update':
+          if (!isGroup && data.messageId) {
+            setMessages(prev => prev.map(msg => {
+              if (msg.id === data.messageId) {
+                return {...msg, status: data.status};
               }
               return msg;
             }));

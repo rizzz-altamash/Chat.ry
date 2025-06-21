@@ -93,6 +93,18 @@ const ChatsScreen = ({navigation}) => {
             // Safely extract participant data
             const participantId = chat.participant?._id || chat.participant?.id;
             const participantName = chat.participant?.name || chat.participant?.username || 'Unknown User';
+
+            // 🆕 Process last message with sender info
+            let lastMessageText = '';
+            let lastMessageStatus = null;
+            let isLastMessageMine = false;
+            
+            if (chat.lastMessage) {
+              const senderId = chat.lastMessage.sender?._id || chat.lastMessage.sender?.id || chat.lastMessage.sender;
+              isLastMessageMine = String(senderId) === String(currentUserId);
+              lastMessageText = chat.lastMessage.text || '';
+              lastMessageStatus = chat.lastMessage.status;
+            }
             
             return {
               id: chat._id || `chat_${index}`,
@@ -101,6 +113,8 @@ const ChatsScreen = ({navigation}) => {
               username: chat.participant?.username || null,
               avatar: chat.participant?.avatar || null,
               lastMessage: chat.lastMessage?.text || '',
+              lastMessageStatus: lastMessageStatus,  // 🆕 Add status
+              isLastMessageMine: isLastMessageMine,  // 🆕 Add flag
               time: formatMessageTime(chat.lastMessage?.createdAt || chat.lastActivity),
               unreadCount: chat.unreadCount || 0,
               isOnline: chat.participant?.isOnline || false,
@@ -150,6 +164,19 @@ const ChatsScreen = ({navigation}) => {
           // Update read status
           loadChats();
           break;
+
+        case 'message_status_update':
+        // Update chat list when message status changes
+        setChats(prevChats => 
+          prevChats.map(chat => {
+            if (chat.lastMessage && chat.isLastMessageMine) {
+              // Update status if this is about the last message
+              return {...chat, lastMessageStatus: data.status};
+            }
+            return chat;
+          })
+        );
+        break;
       }
     };
     

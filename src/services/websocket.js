@@ -148,6 +148,15 @@ class WebSocketService {
     });
   }
 
+  // New method to mark messages as delivered
+  markAsDelivered(messageIds) {
+    if (!this.socket || !this.connected) return;
+
+    this.socket.emit('message_delivered', {
+      messageIds
+    });
+  }
+
   // Mark messages as read
   markAsRead(messageIds, chatId) {
     if (!this.socket || !this.connected) return;

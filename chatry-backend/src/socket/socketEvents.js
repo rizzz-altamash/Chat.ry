@@ -292,7 +292,8 @@ const socketEvents = (io, socket) => {
         sender: senderId,
         recipient: recipientId,
         text,
-        type
+        type,
+        status: 'sent'
       });
 
       await message.save();
@@ -324,11 +325,41 @@ const socketEvents = (io, socket) => {
         chatId: chat._id
       });
 
-      // Emit to recipient if online
-      io.to(recipientIdStr).emit('new_message', {
-        message,
-        chatId: chat._id
-      });
+      // // Emit to recipient if online
+      // io.to(recipientIdStr).emit('new_message', {
+      //   message,
+      //   chatId: chat._id
+      // });
+
+      // 🆕 Check if recipient is online and emit to them
+      const recipientSocket = [...io.sockets.sockets.values()]
+        .find(s => s.userId === recipientIdStr);
+      
+      if (recipientSocket) {
+        // Recipient is online, emit new message
+        recipientSocket.emit('new_message', {
+          message,
+          chatId: chat._id
+        });
+        
+        // 🆕 IMPORTANT: Mark as delivered after short delay
+        setTimeout(async () => {
+          message.status = 'delivered';
+          await message.save();
+          
+          // Notify sender about delivery
+          socket.emit('message_status_update', {
+            messageId: message._id,
+            status: 'delivered'
+          });
+        }, 100);
+      } else {
+        // Recipient offline, just emit to their room
+        io.to(recipientIdStr).emit('new_message', {
+          message,
+          chatId: chat._id
+        });
+      }
 
     } catch (error) {
       console.error('Send message error:', error);
@@ -467,17 +498,51 @@ const socketEvents = (io, socket) => {
   });
 
   // Handle message delivered status
+  // socket.on('message_delivered', async (data) => {
+  //   const { messageIds } = data;
+
+  //   try {
+  //     await Message.updateMany(
+  //       {
+  //         _id: { $in: messageIds },
+  //         status: 'sent'
+  //       },
+  //       { status: 'delivered' }
+  //     );
+  //   } catch (error) {
+  //     console.error('Message delivered error:', error);
+  //   }
+  // });
+
+  // Yeh event already hai but modify karo
   socket.on('message_delivered', async (data) => {
     const { messageIds } = data;
 
     try {
-      await Message.updateMany(
+      // Update messages to delivered
+      const messages = await Message.updateMany(
         {
           _id: { $in: messageIds },
           status: 'sent'
         },
         { status: 'delivered' }
       );
+
+      // 🆕 Get sender IDs and notify them
+      const updatedMessages = await Message.find({ 
+        _id: { $in: messageIds } 
+      }).select('sender');
+      
+      // Notify each sender about delivery
+      const senderIds = [...new Set(updatedMessages.map(m => m.sender.toString()))];
+      
+      senderIds.forEach(senderId => {
+        io.to(senderId).emit('messages_delivered', {
+          messageIds,
+          deliveredTo: socket.userId
+        });
+      });
+
     } catch (error) {
       console.error('Message delivered error:', error);
     }

@@ -107,7 +107,7 @@ const getChats = async (req, res, next) => {
       path: 'lastMessage',
       populate: {
         path: 'sender',
-        select: 'name'
+        select: 'name _id' // 🆕 Include sender ID
       }
     })
     .sort({ lastActivity: -1 });

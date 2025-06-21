@@ -22,6 +22,22 @@ const ChatItem = ({chat, onPress}) => {
 
   const isLeftGroup = chat.isLeftGroup;
 
+  // 🆕 Function to get status icon
+  const getStatusIcon = () => {
+    if (!chat.isLastMessageMine || !chat.lastMessageStatus) return null;
+    
+    switch (chat.lastMessageStatus) {
+      case 'sent':
+        return <Icon name="checkmark" size={14} color={colors.gray5} style={styles.statusIcon} />;
+      case 'delivered':
+        return <Icon name="checkmark-done" size={14} color={colors.gray5} style={styles.statusIcon} />;
+      case 'read':
+        return <Icon name="checkmark-done" size={14} color={colors.info} style={styles.statusIcon} />;
+      default:
+        return null;
+    }
+  };
+
   return (
     <TouchableOpacity style={[styles.container, isLeftGroup && styles.leftGroupContainer]} onPress={onPress} activeOpacity={0.7}>
       <View style={styles.leftSection}>
@@ -43,9 +59,12 @@ const ChatItem = ({chat, onPress}) => {
           {chat.isTyping ? (
             <Text style={styles.typingText}>typing...</Text>
           ) : (
-            <Text style={styles.lastMessage} numberOfLines={1}>
-              {chat.lastMessage}
-            </Text>
+            <View style={styles.lastMessageContainer}>
+              {getStatusIcon()} 
+              <Text style={styles.lastMessage} numberOfLines={1}>
+                {chat.lastMessage}
+              </Text>
+            </View>
           )}
         </View>
       </View>
@@ -128,6 +147,15 @@ const styles = StyleSheet.create({
   messageRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    // flex: 1,
+  },
+  lastMessageContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  statusIcon: {
+    marginRight: 4,
   },
   lastMessage: {
     fontSize: 15,
